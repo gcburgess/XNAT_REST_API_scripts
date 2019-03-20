@@ -31,7 +31,9 @@ HOST="intradb.humanconnectome.org"
 
 Usage() {
 cat <<EOF
-Usage: `basename $0` [-j JSESSIONID] [-h XNAThost]
+Usage: `basename $0` -j JSESSIONID -r URI [-h HOST]
+
+How this works
 
 _________________________________________________________________________
 \$Id$
@@ -45,35 +47,6 @@ CleanUp () {
 }
 
 
-get_jsession() {
-	if [ -e "${HOME}/.intradb.curl.conf" ]
-	then
-		JSESSIONID=`curl -s -K ${HOME}/.intradb.curl.conf https://$HOST/data/JSESSIONID`
-	else
-		read -s -p "ENTER $HOST USERNAME: " USERNAME;
-		read -s -p "ENTER PASSWORD for $USERNAME at $HOST: " PW;
-		echo "Getting session permissions..."
-		echo
-		JSESSIONID=`curl -s -k -u $USERNAME:$PW https://$HOST/data/JSESSIONID`;
-	fi
-	echo $JSESSIONID;
-}
-
-refresh_jsession () {
-	if [ -n "$JSESSIONID" ]; then	# if jsession not empty, check if it's good
-		# Check that JSESSIONID from parent proc is still good and get new one if not
-		http_code=$(curl -I -s -o /dev/null -k --cookie "JSESSIONID=$JSESSIONID" \
-			-w "%{http_code}" https://$HOST/data/projects)
-	fi
-
-	if [[ ! "$http_code" == "200" ]]; then	# jsession is old or blank
-		get_jsession;
-	else 									# jsession is new and fresh
-		echo $JSESSIONID;
-	fi
-}
-
-
 ###############################################################################
 #
 # Parse arguments
@@ -81,27 +54,34 @@ refresh_jsession () {
 ###############################################################################
 
 while (( $# > 1 )) ; do
-  case "$1" in
+	case "$1" in
+		"-help")
+			Usage
+			;;
 		"-j")
-		    shift
-		    JSESSIONID="$1"
-		    shift
-		    ;;
+			shift
+			JSESSIONID="$1"
+			shift
+			;;
+		"-r")
+			shift
+			URI="$1"
+			shift
+			;;
 		"-h")
-		    shift
-		    HOST="$1"
-		    shift
-		    ;;
+			shift
+			HOST="$1"
+			shift
+			;;
 		-*)
 			echo "ERROR: Unknown option '$1'"
-			Usage
 			exit 1
 			break
 			;;
 		*)
 			break
 			;;
-  esac
+	esac
 done
 
 ## Use this if you expect more arguments (e.g., list of files)
@@ -119,9 +99,7 @@ done
 #done
 
 
-refresh_jsession
-
-
+curl -s -k --cookie JSESSIONID=$JSESSIONID https://${HOST}${URI} -O
 
 ###############################################################################
 #
